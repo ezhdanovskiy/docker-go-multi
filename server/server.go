@@ -8,9 +8,9 @@ import (
 type Server struct {
 }
 
-func NewServer() *Server {
+func NewServer() (*Server, error) {
 	fmt.Println("Server created")
-	return &Server{}
+	return &Server{}, nil
 }
 
 func (Server) ServeHTTP(w http.ResponseWriter, _ *http.Request) {

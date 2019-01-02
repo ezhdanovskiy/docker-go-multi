@@ -1,0 +1,11 @@
+FROM golang
+
+RUN go get github.com/go-redis/redis
+
+ADD . /go/src/github.com/ezhdanovskiy/docker-go-multi
+
+RUN go install github.com/ezhdanovskiy/docker-go-multi
+
+CMD ["/go/bin/docker-go-multi"]
+
+EXPOSE 8080
