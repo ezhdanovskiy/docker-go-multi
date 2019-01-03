@@ -1,9 +1,11 @@
 package client
 
 import (
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/go-redis/redis"
 )
@@ -37,9 +39,9 @@ func (c *Client) Index(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		err := r.ParseForm()
 		if err != nil {
-			log.Printf("error: can't parce form %s\n", err)
+			sendErr(err, w, "http: can't parse form")
 		}
-		// logic part of log in
+
 		for _, v := range r.Form["value"] {
 			log.Printf("publish %s to %q\n", v, c.channel)
 			c.redis.Publish(c.channel, v)
@@ -62,7 +64,7 @@ func (c *Client) Index(w http.ResponseWriter, r *http.Request) {
 
 	err := tmpl.Execute(w, data)
 	if err != nil {
-		log.Printf("error: can't execute template: %s\n", err)
+		sendErr(err, w, "http: can't execute template")
 	}
 }
 
@@ -90,3 +92,18 @@ var tmpl = template.Must(template.New("tmpl").Parse(`
 </body>
 </html>
 `))
+
+func (c *Client) Close() {
+	err := c.redis.Close()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+}
+
+func sendErr(err error, w http.ResponseWriter, msg string) {
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, `{"error": "%s: %s"}`, msg, err)
+		log.Printf(`{"error": "%s: %s"}`, msg, err)
+	}
+}

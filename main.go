@@ -22,58 +22,32 @@ func main() {
 
 	switch *component {
 	case "client":
-		check(runClient())
-		err := http.ListenAndServe(*httpAddr, nil)
+		cl, err := client.NewClient(env.RedisHost+":"+env.RedisPort, env.RedisChannel, env.RedisHash)
+		check(err)
+		defer cl.Close()
+
+		http.HandleFunc("/", cl.Index)
+		err = http.ListenAndServe(*httpAddr, nil)
 		check(err)
 
 	case "server":
-		check(runServer())
-		err := http.ListenAndServe(*httpAddr, nil)
+		srv, err := server.NewServer()
+		check(err)
+		defer srv.Close()
+		err = srv.Run(*httpAddr)
 		check(err)
 
 	case "worker":
-		check(runWorker())
-
-	default:
-		go func() {
-			check(runWorker())
-		}()
-		check(runClient())
-		check(runServer())
-		err := http.ListenAndServe(*httpAddr, nil)
+		wkr, err := worker.NewWorker(env.RedisHost+":"+env.RedisPort, env.RedisChannel, env.RedisHash)
 		check(err)
+		defer wkr.Close()
+		wkr.Run()
 	}
-}
-
-func runClient() error {
-	cl, err := client.NewClient(env.RedisHost+":"+env.RedisPort, env.RedisChannel, env.RedisHash)
-	if err != nil {
-		return err
-	}
-	http.HandleFunc("/", cl.Index)
-	return nil
-}
-
-func runServer() error {
-	srv, err := server.NewServer()
-	if err != nil {
-		return err
-	}
-	http.Handle("/server", srv)
-	return nil
-}
-
-func runWorker() error {
-	wkr, err := worker.NewWorker(env.RedisHost+":"+env.RedisPort, env.RedisChannel, env.RedisHash)
-	if err != nil {
-		return err
-	}
-	wkr.Run()
-	return nil
 }
 
 func check(err error) {
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
 	}
 }
