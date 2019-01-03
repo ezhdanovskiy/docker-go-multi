@@ -9,9 +9,16 @@ import (
 	"github.com/go-redis/redis"
 )
 
+const (
+	redisChannelDefault = "message"
+	redisHashDefault    = "values"
+)
+
 type Worker struct {
-	r  *redis.Client
-	ps *redis.PubSub
+	rd      *redis.Client
+	ps      *redis.PubSub
+	channel string
+	hash    string
 }
 
 func NewWorker() (*Worker, error) {
@@ -24,16 +31,27 @@ func NewWorker() (*Worker, error) {
 		return nil, err
 	}
 
-	pubsub := r.Subscribe("message")
+	channel := os.Getenv("REDIS_CHANNEL")
+	if channel == "" {
+		channel = redisChannelDefault
+	}
+	pubsub := r.Subscribe(channel)
+
+	hash := os.Getenv("REDIS_HASH")
+	if hash == "" {
+		hash = redisHashDefault
+	}
 
 	log.Println("Worker created")
 	return &Worker{
-		r:  r,
-		ps: pubsub,
+		rd:      r,
+		ps:      pubsub,
+		channel: channel,
+		hash:    hash,
 	}, nil
 }
 
-func (w Worker) Run() {
+func (w *Worker) Run() {
 	log.Println("Worker working...")
 	for i := 0; i < 1000; i++ {
 		msg, err := w.ps.ReceiveMessage()
@@ -51,7 +69,8 @@ func (w Worker) Run() {
 		value := fib(index)
 		log.Printf("finish fib(%d) = %d\n", index, value)
 
-		w.r.HSet("values", msg.Payload, value)
+		log.Printf("put %q - %d to hash %q\n", msg.Payload, value, w.hash)
+		w.rd.HSet(w.hash, msg.Payload, value)
 	}
 }
 
@@ -60,7 +79,7 @@ func (w *Worker) Close() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}
-	err = w.r.Close()
+	err = w.rd.Close()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}

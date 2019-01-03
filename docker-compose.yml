@@ -19,6 +19,8 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_CHANNEL=message
+      - REDIS_HASH=values
   worker:
     build:
       context: .
@@ -27,3 +29,5 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_CHANNEL=message
+      - REDIS_HASH=values
