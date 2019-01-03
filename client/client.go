@@ -1,8 +1,10 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -34,8 +36,17 @@ func NewClient(addr, channel, hash string) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) Index(w http.ResponseWriter, r *http.Request) {
-	log.Println("method:", r.Method) //get request method
+func (c *Client) Run(addr string) error {
+	http.HandleFunc("/", c.index)
+	err := http.ListenAndServe(addr, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Client) index(w http.ResponseWriter, r *http.Request) {
+	log.Println("method:", r.Method)
 	if r.Method == "POST" {
 		err := r.ParseForm()
 		if err != nil {
@@ -52,20 +63,41 @@ func (c *Client) Index(w http.ResponseWriter, r *http.Request) {
 		Indexes []string
 		Values  map[string]string
 	}{
-		Values: make(map[string]string),
+		Values: getValues(),
 	}
 
-	hashVal := c.redis.HGetAll(c.hash).Val()
-	log.Printf("hashVal sise: %d\n", len(hashVal))
-	for k, v := range hashVal {
+	for k := range data.Values {
 		data.Indexes = append(data.Indexes, k)
-		data.Values[k] = v
 	}
 
 	err := tmpl.Execute(w, data)
 	if err != nil {
 		sendErr(err, w, "http: can't execute template")
 	}
+}
+
+func getValues() map[string]string {
+	resp, err := http.Get("http://api:8080/values/current")
+	if err != nil {
+		log.Printf("error: can't get /api/values/current: %s", err)
+		return nil
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("error: can't read body : %s", err)
+		return nil
+	}
+	log.Printf("body: %q", body)
+
+	v := make(map[string]string)
+	err = json.Unmarshal(body, &v)
+	if err != nil {
+		log.Printf("error: can't read body : %s", err)
+		return nil
+	}
+	return v
 }
 
 var tmpl = template.Must(template.New("tmpl").Parse(`

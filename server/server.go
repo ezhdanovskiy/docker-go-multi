@@ -74,7 +74,7 @@ func (s *Server) Run(addr string) error {
 }
 
 func (s *Server) values(w http.ResponseWriter, r *http.Request) {
-	log.Println("method:", r.Method) //get request method
+	log.Println(r.Method, r.URL)
 	err := r.ParseForm()
 	if err != nil {
 		sendErr(err, w, "can't parse form", http.StatusBadRequest)
@@ -110,17 +110,19 @@ func (s *Server) values(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) valuesCurrent(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) valuesCurrent(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.Method, r.URL)
 	body, err := json.Marshal(s.redis.HGetAll(s.hash).Val())
 	if err != nil {
 		sendErr(err, w, "redis: can't marshal values", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("%q", body)
+	log.Printf("response: %q", body)
 	fmt.Fprintf(w, "%s", body)
 }
 
-func (s *Server) valuesAll(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) valuesAll(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.Method, r.URL)
 	log.Printf("SELECT * FROM values;")
 	rows, err := s.db.Query("SELECT * FROM values;")
 	if err != nil {
@@ -145,7 +147,7 @@ func (s *Server) valuesAll(w http.ResponseWriter, _ *http.Request) {
 		sendErr(err, w, "db: can't marshal indexes", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("%q", body)
+	log.Printf("response: %q", body)
 	fmt.Fprintf(w, "%s", body)
 }
 

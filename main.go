@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net/http"
 	"os"
 
 	"github.com/ezhdanovskiy/docker-go-multi/client"
@@ -26,8 +25,7 @@ func main() {
 		check(err)
 		defer cl.Close()
 
-		http.HandleFunc("/", cl.Index)
-		err = http.ListenAndServe(*httpAddr, nil)
+		err = cl.Run(*httpAddr)
 		check(err)
 
 	case "server":
