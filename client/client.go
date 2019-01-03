@@ -4,25 +4,19 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/go-redis/redis"
 )
 
-const (
-	redisChannelDefault = "message"
-	redisHashDefault    = "values"
-)
-
 type Client struct {
-	rd      *redis.Client
+	redis   *redis.Client
 	channel string
 	hash    string
 }
 
-func NewClient() (*Client, error) {
+func NewClient(addr, channel, hash string) (*Client, error) {
 	r := redis.NewClient(&redis.Options{
-		Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
+		Addr: addr,
 	})
 
 	_, err := r.Ping().Result()
@@ -30,19 +24,9 @@ func NewClient() (*Client, error) {
 		return nil, err
 	}
 
-	channel := os.Getenv("REDIS_CHANNEL")
-	if channel == "" {
-		channel = redisChannelDefault
-	}
-
-	hash := os.Getenv("REDIS_HASH")
-	if hash == "" {
-		hash = redisHashDefault
-	}
-
 	log.Println("Client created")
 	return &Client{
-		rd:      r,
+		redis:   r,
 		channel: channel,
 		hash:    hash,
 	}, nil
@@ -58,7 +42,7 @@ func (c *Client) Index(w http.ResponseWriter, r *http.Request) {
 		// logic part of log in
 		for _, v := range r.Form["value"] {
 			log.Printf("publish %s to %q\n", v, c.channel)
-			c.rd.Publish(c.channel, v)
+			c.redis.Publish(c.channel, v)
 		}
 	}
 
@@ -69,7 +53,7 @@ func (c *Client) Index(w http.ResponseWriter, r *http.Request) {
 		Values: make(map[string]string),
 	}
 
-	hashVal := c.rd.HGetAll(c.hash).Val()
+	hashVal := c.redis.HGetAll(c.hash).Val()
 	log.Printf("hashVal sise: %d\n", len(hashVal))
 	for k, v := range hashVal {
 		data.Indexes = append(data.Indexes, k)

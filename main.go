@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/ezhdanovskiy/docker-go-multi/client"
+	"github.com/ezhdanovskiy/docker-go-multi/env"
 	"github.com/ezhdanovskiy/docker-go-multi/server"
 	"github.com/ezhdanovskiy/docker-go-multi/worker"
 )
@@ -45,7 +46,7 @@ func main() {
 }
 
 func runClient() error {
-	cl, err := client.NewClient()
+	cl, err := client.NewClient(env.RedisHost+":"+env.RedisPort, env.RedisChannel, env.RedisHash)
 	if err != nil {
 		return err
 	}
@@ -63,7 +64,7 @@ func runServer() error {
 }
 
 func runWorker() error {
-	wkr, err := worker.NewWorker()
+	wkr, err := worker.NewWorker(env.RedisHost+":"+env.RedisPort, env.RedisChannel, env.RedisHash)
 	if err != nil {
 		return err
 	}

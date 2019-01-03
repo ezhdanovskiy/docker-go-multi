@@ -9,21 +9,16 @@ import (
 	"github.com/go-redis/redis"
 )
 
-const (
-	redisChannelDefault = "message"
-	redisHashDefault    = "values"
-)
-
 type Worker struct {
-	rd      *redis.Client
-	ps      *redis.PubSub
+	redis   *redis.Client
+	pubsub  *redis.PubSub
 	channel string
 	hash    string
 }
 
-func NewWorker() (*Worker, error) {
+func NewWorker(addr, channel, hash string) (*Worker, error) {
 	r := redis.NewClient(&redis.Options{
-		Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
+		Addr: addr,
 	})
 
 	_, err := r.Ping().Result()
@@ -31,21 +26,12 @@ func NewWorker() (*Worker, error) {
 		return nil, err
 	}
 
-	channel := os.Getenv("REDIS_CHANNEL")
-	if channel == "" {
-		channel = redisChannelDefault
-	}
 	pubsub := r.Subscribe(channel)
-
-	hash := os.Getenv("REDIS_HASH")
-	if hash == "" {
-		hash = redisHashDefault
-	}
 
 	log.Println("Worker created")
 	return &Worker{
-		rd:      r,
-		ps:      pubsub,
+		redis:   r,
+		pubsub:  pubsub,
 		channel: channel,
 		hash:    hash,
 	}, nil
@@ -54,7 +40,7 @@ func NewWorker() (*Worker, error) {
 func (w *Worker) Run() {
 	log.Println("Worker working...")
 	for i := 0; i < 1000; i++ {
-		msg, err := w.ps.ReceiveMessage()
+		msg, err := w.pubsub.ReceiveMessage()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			continue
@@ -70,16 +56,16 @@ func (w *Worker) Run() {
 		log.Printf("finish fib(%d) = %d\n", index, value)
 
 		log.Printf("put %q - %d to hash %q\n", msg.Payload, value, w.hash)
-		w.rd.HSet(w.hash, msg.Payload, value)
+		w.redis.HSet(w.hash, msg.Payload, value)
 	}
 }
 
 func (w *Worker) Close() {
-	err := w.ps.Close()
+	err := w.pubsub.Close()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}
-	err = w.rd.Close()
+	err = w.redis.Close()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}
