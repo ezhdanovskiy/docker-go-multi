@@ -74,16 +74,15 @@ func (s *Server) Run(addr string) error {
 }
 
 func (s *Server) values(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.Method, r.URL)
+	log.Println("method:", r.Method, r.URL)
 	err := r.ParseForm()
 	if err != nil {
 		sendErr(err, w, "can't parse form", http.StatusBadRequest)
 		return
 	}
+	log.Println("form:", r.Form)
 
-	log.Printf("r.Form[index] = %#v", r.Form["index"])
 	for _, index := range r.Form["index"] {
-		log.Printf("index = %s", index)
 		ind, err := strconv.ParseInt(index, 10, 64)
 		if err != nil {
 			sendErr(err, w, "can't parse index", http.StatusBadRequest)
@@ -94,10 +93,10 @@ func (s *Server) values(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Printf("set %q to hash %q", index, s.channel)
+		log.Printf("set %q to redis hash %q", index, s.channel)
 		s.redis.HSet(s.hash, index, "Nothing yet!")
 
-		log.Printf("publish %q to channel %q", index, s.channel)
+		log.Printf("publish %q to redis channel %q", index, s.channel)
 		s.redis.Publish(s.channel, index)
 
 		log.Printf("insert %q to db", index)
@@ -111,7 +110,7 @@ func (s *Server) values(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) valuesCurrent(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.Method, r.URL)
+	log.Println("method:", r.Method, r.URL)
 	body, err := json.Marshal(s.redis.HGetAll(s.hash).Val())
 	if err != nil {
 		sendErr(err, w, "redis: can't marshal values", http.StatusInternalServerError)
@@ -122,7 +121,7 @@ func (s *Server) valuesCurrent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) valuesAll(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.Method, r.URL)
+	log.Println("method:", r.Method, r.URL)
 	log.Printf("SELECT * FROM values;")
 	rows, err := s.db.Query("SELECT * FROM values;")
 	if err != nil {
@@ -151,7 +150,8 @@ func (s *Server) valuesAll(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", body)
 }
 
-func (s *Server) index(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) index(w http.ResponseWriter, r *http.Request) {
+	log.Println("method:", r.Method, r.URL)
 	fmt.Fprintf(w, "Hi from server")
 }
 

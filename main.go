@@ -21,7 +21,7 @@ func main() {
 
 	switch *component {
 	case "client":
-		cl, err := client.NewClient(env.RedisHost+":"+env.RedisPort, env.RedisChannel, env.RedisHash)
+		cl, err := client.NewClient()
 		check(err)
 		defer cl.Close()
 

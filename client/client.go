@@ -7,33 +7,16 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
-
-	"github.com/go-redis/redis"
+	"net/url"
 )
 
 type Client struct {
-	redis   *redis.Client
-	channel string
-	hash    string
 }
 
-func NewClient(addr, channel, hash string) (*Client, error) {
-	r := redis.NewClient(&redis.Options{
-		Addr: addr,
-	})
-
-	_, err := r.Ping().Result()
-	if err != nil {
-		return nil, err
-	}
+func NewClient() (*Client, error) {
 
 	log.Println("Client created")
-	return &Client{
-		redis:   r,
-		channel: channel,
-		hash:    hash,
-	}, nil
+	return &Client{}, nil
 }
 
 func (c *Client) Run(addr string) error {
@@ -46,16 +29,26 @@ func (c *Client) Run(addr string) error {
 }
 
 func (c *Client) index(w http.ResponseWriter, r *http.Request) {
-	log.Println("method:", r.Method)
+	log.Println("method:", r.Method, r.URL)
+	if r.URL.String() == "/favicon.ico" {
+		return
+	}
 	if r.Method == "POST" {
 		err := r.ParseForm()
 		if err != nil {
 			sendErr(err, w, "http: can't parse form")
 		}
+		log.Println("form:", r.Form)
 
 		for _, v := range r.Form["value"] {
-			log.Printf("publish %s to %q\n", v, c.channel)
-			c.redis.Publish(c.channel, v)
+			log.Printf("post %q to /api/values", v)
+			resp, err := http.PostForm("http://api:8080/values", url.Values{"index": []string{v}})
+			if err != nil {
+				log.Printf("error: can't post values: %s", err)
+			}
+			resp.Body.Close()
+
+			break
 		}
 	}
 
@@ -77,9 +70,10 @@ func (c *Client) index(w http.ResponseWriter, r *http.Request) {
 }
 
 func getValues() map[string]string {
+	log.Printf("GET /api/values/current")
 	resp, err := http.Get("http://api:8080/values/current")
 	if err != nil {
-		log.Printf("error: can't get /api/values/current: %s", err)
+		log.Printf("error: can't get current values: %s", err)
 		return nil
 	}
 	defer resp.Body.Close()
@@ -126,10 +120,6 @@ var tmpl = template.Must(template.New("tmpl").Parse(`
 `))
 
 func (c *Client) Close() {
-	err := c.redis.Close()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-	}
 }
 
 func sendErr(err error, w http.ResponseWriter, msg string) {
