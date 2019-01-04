@@ -138,7 +138,6 @@ func (s *Server) valuesAll(w http.ResponseWriter, r *http.Request) {
 			sendErr(err, w, "db: can't scan index", http.StatusInternalServerError)
 			return
 		}
-		log.Println("index =", index)
 		indexes = append(indexes, index)
 	}
 	body, err := json.Marshal(indexes)

@@ -53,14 +53,11 @@ func (c *Client) index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Indexes []string
+		Indexes []int64
 		Values  map[string]string
 	}{
-		Values: getValues(),
-	}
-
-	for k := range data.Values {
-		data.Indexes = append(data.Indexes, k)
+		Indexes: getAllValues(),
+		Values:  getCurrentValues(),
 	}
 
 	err := tmpl.Execute(w, data)
@@ -69,7 +66,7 @@ func (c *Client) index(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getValues() map[string]string {
+func getCurrentValues() map[string]string {
 	log.Printf("GET /api/values/current")
 	resp, err := http.Get("http://api:8080/values/current")
 	if err != nil {
@@ -86,6 +83,31 @@ func getValues() map[string]string {
 	log.Printf("body: %q", body)
 
 	v := make(map[string]string)
+	err = json.Unmarshal(body, &v)
+	if err != nil {
+		log.Printf("error: can't read body : %s", err)
+		return nil
+	}
+	return v
+}
+
+func getAllValues() []int64 {
+	log.Printf("GET /api/values/all")
+	resp, err := http.Get("http://api:8080/values/all")
+	if err != nil {
+		log.Printf("error: can't get all values: %s", err)
+		return nil
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("error: can't read body : %s", err)
+		return nil
+	}
+	log.Printf("body: %q", body)
+
+	v := make([]int64, 0)
 	err = json.Unmarshal(body, &v)
 	if err != nil {
 		log.Printf("error: can't read body : %s", err)
