@@ -41,13 +41,14 @@ func (c *Client) index(w http.ResponseWriter, r *http.Request) {
 		log.Println("form:", r.Form)
 
 		for _, v := range r.Form["value"] {
-			log.Printf("post %q to /api/values", v)
-			resp, err := http.PostForm("http://api:8080/values", url.Values{"index": []string{v}})
+			u := "http://nginx/api/values"
+			log.Printf("POST %q to %q", v, u)
+			resp, err := http.PostForm(u, url.Values{"index": []string{v}})
 			if err != nil {
 				log.Printf("error: can't post values: %s", err)
+				break
 			}
 			resp.Body.Close()
-
 			break
 		}
 	}
@@ -56,7 +57,7 @@ func (c *Client) index(w http.ResponseWriter, r *http.Request) {
 		Indexes []int64
 		Values  map[string]string
 	}{
-		Indexes: getAllValues(),
+		Indexes: getIndexes(),
 		Values:  getCurrentValues(),
 	}
 
@@ -66,34 +67,10 @@ func (c *Client) index(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getCurrentValues() map[string]string {
-	log.Printf("GET /api/values/current")
-	resp, err := http.Get("http://api:8080/values/current")
-	if err != nil {
-		log.Printf("error: can't get current values: %s", err)
-		return nil
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Printf("error: can't read body : %s", err)
-		return nil
-	}
-	log.Printf("body: %q", body)
-
-	v := make(map[string]string)
-	err = json.Unmarshal(body, &v)
-	if err != nil {
-		log.Printf("error: can't read body : %s", err)
-		return nil
-	}
-	return v
-}
-
-func getAllValues() []int64 {
-	log.Printf("GET /api/values/all")
-	resp, err := http.Get("http://api:8080/values/all")
+func getIndexes() []int64 {
+	u := "http://nginx/api/values/all"
+	log.Printf("GET %q", u)
+	resp, err := http.Get(u)
 	if err != nil {
 		log.Printf("error: can't get all values: %s", err)
 		return nil
@@ -108,6 +85,33 @@ func getAllValues() []int64 {
 	log.Printf("body: %q", body)
 
 	v := make([]int64, 0)
+	err = json.Unmarshal(body, &v)
+	if err != nil {
+		log.Printf("error: can't read body : %s", err)
+		return nil
+	}
+	return v
+}
+
+func getCurrentValues() map[string]string {
+	u := "http://nginx/api/values/current"
+	log.Printf("GET %q", u)
+	resp, err := http.Get(u)
+	log.Printf("GET /api/values/current")
+	if err != nil {
+		log.Printf("error: can't get current values: %s", err)
+		return nil
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("error: can't read body : %s", err)
+		return nil
+	}
+	log.Printf("body: %q", body)
+
+	v := make(map[string]string)
 	err = json.Unmarshal(body, &v)
 	if err != nil {
 		log.Printf("error: can't read body : %s", err)
