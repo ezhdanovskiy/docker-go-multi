@@ -8,24 +8,28 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 )
 
 type Client struct {
+	http *http.Server
 }
 
-func NewClient() (*Client, error) {
+func StartClient(addr string) (*Client, error) {
+	httpServer := &http.Server{Addr: addr}
 
-	log.Println("Client created")
-	return &Client{}, nil
-}
+	client := &Client{http: httpServer}
 
-func (c *Client) Run(addr string) error {
-	http.HandleFunc("/", c.index)
-	err := http.ListenAndServe(addr, nil)
-	if err != nil {
-		return err
-	}
-	return nil
+	http.HandleFunc("/", client.index)
+
+	go func() {
+		if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServe(): %s", err)
+		}
+	}()
+
+	log.Println("Client started")
+	return client, nil
 }
 
 func (c *Client) index(w http.ResponseWriter, r *http.Request) {
@@ -146,6 +150,10 @@ var tmpl = template.Must(template.New("tmpl").Parse(`
 `))
 
 func (c *Client) Close() {
+	log.Println("Shutdown http")
+	if err := c.http.Shutdown(nil); err != nil {
+		fmt.Fprintln(os.Stderr, "http.Shutdown()", err)
+	}
 }
 
 func sendErr(err error, w http.ResponseWriter, msg string) {

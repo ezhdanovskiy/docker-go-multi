@@ -3,7 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/ezhdanovskiy/docker-go-multi/client"
 	"github.com/ezhdanovskiy/docker-go-multi/env"
@@ -11,36 +14,42 @@ import (
 	"github.com/ezhdanovskiy/docker-go-multi/worker"
 )
 
-var (
-	httpAddr  = flag.String("http", ":8080", "Listen address")
-	component = flag.String("component", "", "Run one component")
-)
-
 func main() {
+	var (
+		httpAddr  = flag.String("http", ":8080", "Listen address")
+		component = flag.String("component", "", "Run one component")
+	)
 	flag.Parse()
 
-	switch *component {
+	run(*component, *httpAddr)
+	log.Printf("Bye bye!")
+}
+
+func run(comp, addr string) {
+	switch comp {
 	case "client":
-		cl, err := client.NewClient()
+		cl, err := client.StartClient(addr)
 		check(err)
 		defer cl.Close()
 
-		err = cl.Run(*httpAddr)
-		check(err)
-
 	case "server":
-		srv, err := server.NewServer()
+		srv, err := server.StartServer(addr)
 		check(err)
 		defer srv.Close()
-		err = srv.Run(*httpAddr)
-		check(err)
 
 	case "worker":
 		wkr, err := worker.NewWorker(env.RedisHost+":"+env.RedisPort, env.RedisChannel, env.RedisHash)
 		check(err)
 		defer wkr.Close()
-		wkr.Run()
 	}
+	waitSignal()
+}
+
+func waitSignal() {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-sigs
+	log.Println("Received signal:", sig)
 }
 
 func check(err error) {

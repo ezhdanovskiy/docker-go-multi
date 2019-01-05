@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/go-redis/redis"
 )
@@ -14,6 +16,7 @@ type Worker struct {
 	pubsub  *redis.PubSub
 	channel string
 	hash    string
+	wg      sync.WaitGroup
 }
 
 func NewWorker(addr, channel, hash string) (*Worker, error) {
@@ -21,54 +24,69 @@ func NewWorker(addr, channel, hash string) (*Worker, error) {
 		Addr: addr,
 	})
 
+	log.Printf("redis.Ping()")
 	_, err := r.Ping().Result()
-	if err != nil {
-		return nil, err
+	for ; err != nil; _, err = r.Ping().Result() {
+		log.Printf("bad redis ping: %s", err)
+		time.Sleep(time.Second)
 	}
 
 	pubsub := r.Subscribe(channel)
 
-	log.Println("Worker created")
-	return &Worker{
+	worker := &Worker{
 		redis:   r,
 		pubsub:  pubsub,
 		channel: channel,
 		hash:    hash,
-	}, nil
+	}
+
+	go worker.Run()
+
+	log.Println("Worker created")
+	return worker, nil
 }
 
 func (w *Worker) Run() {
-	log.Println("Worker working...")
-	for i := 0; i < 1000; i++ {
-		msg, err := w.pubsub.ReceiveMessage()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			continue
+	for true {
+		msg := <-w.pubsub.Channel()
+		if msg == nil {
+			log.Println("Stop listening messages")
+			break
 		}
 		log.Printf("got %q from %q\n", msg.Payload, msg.Channel)
-		index, err := strconv.ParseInt(msg.Payload, 10, 64)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			continue
-		}
-		log.Printf("start calculate fib(%d)\n", index)
-		value := fib(index)
-		log.Printf("finish fib(%d) = %d\n", index, value)
-
-		log.Printf("put %q - %d to hash %q\n", msg.Payload, value, w.hash)
-		w.redis.HSet(w.hash, msg.Payload, value)
+		w.wg.Add(1)
+		go w.calcFib(msg.Payload)
 	}
 }
 
 func (w *Worker) Close() {
-	err := w.pubsub.Close()
-	if err != nil {
+	log.Println("Close redis pubsub")
+	if err := w.pubsub.Close(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}
-	err = w.redis.Close()
-	if err != nil {
+
+	log.Println("Wait workers...")
+	w.wg.Wait()
+
+	log.Println("Close redis")
+	if err := w.redis.Close(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}
+}
+
+func (w *Worker) calcFib(msg string) {
+	defer w.wg.Done()
+	index, err := strconv.ParseInt(msg, 10, 64)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+	log.Printf("start calculate fib(%d)\n", index)
+	value := fib(index)
+	log.Printf("finish fib(%d) = %d\n", index, value)
+
+	log.Printf("put %q - %d to hash %q\n", msg, value, w.hash)
+	w.redis.HSet(w.hash, msg, value)
 }
 
 func fib(index int64) int64 {

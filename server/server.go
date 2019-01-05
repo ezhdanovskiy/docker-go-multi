@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/ezhdanovskiy/docker-go-multi/env"
 	"github.com/go-redis/redis"
@@ -20,9 +21,11 @@ type Server struct {
 	redis   *redis.Client
 	channel string
 	hash    string
+
+	http *http.Server
 }
 
-func NewServer() (_ *Server, err error) {
+func StartServer(addr string) (*Server, error) {
 	dataSourceName := fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%s sslmode=disable",
 		env.PostgresUser, env.PostgresPassword, env.PostgresDatabase, env.PostgresHost, env.PostgresPort)
 	log.Println("connect", dataSourceName)
@@ -32,10 +35,11 @@ func NewServer() (_ *Server, err error) {
 		return nil, fmt.Errorf("can't open db: %s", err)
 	}
 
-	log.Printf("db.Ping()")
+	log.Printf("postgres.Ping()")
 	err = db.Ping()
-	if err != nil {
-		return nil, fmt.Errorf("bad ping: %s", err)
+	for ; err != nil; err = db.Ping() {
+		log.Printf("bad postgres ping: %s", err)
+		time.Sleep(time.Second)
 	}
 
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS values (number INT)")
@@ -47,30 +51,36 @@ func NewServer() (_ *Server, err error) {
 		Addr: env.RedisHost + ":" + env.RedisPort,
 	})
 
+	log.Printf("redis.Ping()")
 	_, err = r.Ping().Result()
-	if err != nil {
-		return nil, err
+	for ; err != nil; _, err = r.Ping().Result() {
+		log.Printf("bad redis ping: %s", err)
+		time.Sleep(time.Second)
 	}
 
-	log.Printf("Server created")
-	return &Server{
+	httpServer := &http.Server{Addr: addr}
+
+	srv := &Server{
 		db:      db,
 		redis:   r,
 		channel: env.RedisChannel,
 		hash:    env.RedisHash,
-	}, nil
-}
-
-func (s *Server) Run(addr string) error {
-	http.HandleFunc("/", s.index)
-	http.HandleFunc("/values", s.values)
-	http.HandleFunc("/values/current", s.valuesCurrent)
-	http.HandleFunc("/values/all", s.valuesAll)
-	err := http.ListenAndServe(addr, nil)
-	if err != nil {
-		return err
+		http:    httpServer,
 	}
-	return nil
+
+	http.HandleFunc("/", srv.index)
+	http.HandleFunc("/values", srv.values)
+	http.HandleFunc("/values/current", srv.valuesCurrent)
+	http.HandleFunc("/values/all", srv.valuesAll)
+
+	go func() {
+		if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServe(): %s", err)
+		}
+	}()
+
+	log.Println("Server started")
+	return srv, nil
 }
 
 func (s *Server) values(w http.ResponseWriter, r *http.Request) {
@@ -155,14 +165,19 @@ func (s *Server) index(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) Close() {
-	err := s.db.Close()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	log.Println("Close postgres")
+	if err := s.db.Close(); err != nil {
+		log.Fatalln("db.Close():", err)
 	}
 
-	err = s.redis.Close()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	log.Println("Close redis")
+	if err := s.redis.Close(); err != nil {
+		fmt.Fprintln(os.Stderr, "redis.Close()", err)
+	}
+
+	log.Println("Shutdown http")
+	if err := s.http.Shutdown(nil); err != nil {
+		fmt.Fprintln(os.Stderr, "http.Shutdown()", err)
 	}
 }
 
