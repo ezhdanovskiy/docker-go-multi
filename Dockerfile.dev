@@ -1,11 +1,10 @@
 FROM golang
 
-RUN go get github.com/go-redis/redis github.com/lib/pq
+RUN go get github.com/go-redis/redis github.com/lib/pq github.com/stretchr/testify/assert
 
+WORKDIR /go/src/github.com/ezhdanovskiy/docker-go-multi
 ADD . /go/src/github.com/ezhdanovskiy/docker-go-multi
-
 RUN go install github.com/ezhdanovskiy/docker-go-multi
 
-CMD ["/go/bin/docker-go-multi"]
-
 EXPOSE 8080
+CMD ["/go/bin/docker-go-multi"]

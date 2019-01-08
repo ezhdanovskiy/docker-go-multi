@@ -88,10 +88,3 @@ func (w *Worker) calcFib(msg string) {
 	log.Printf("put %q - %d to hash %q\n", msg, value, w.hash)
 	w.redis.HSet(w.hash, msg, value)
 }
-
-func fib(index int64) int64 {
-	if index < 2 {
-		return 1
-	}
-	return fib(index-1) + fib(index-2)
-}

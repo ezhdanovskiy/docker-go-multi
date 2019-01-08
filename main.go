@@ -41,6 +41,9 @@ func run(comp, addr string) {
 		wkr, err := worker.NewWorker(env.RedisHost+":"+env.RedisPort, env.RedisChannel, env.RedisHash)
 		check(err)
 		defer wkr.Close()
+	default:
+		flag.Usage()
+		os.Exit(2)
 	}
 	waitSignal()
 }
