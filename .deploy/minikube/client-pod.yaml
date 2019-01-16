@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client-pod
+  labels:
+    component: web
+spec:
+  containers:
+    - name: client
+      image: zhdanovskiy/go-multi-fib
+      ports:
+        - containerPort: 8080
+      command: ["./goapp"]
+      args: ["-component", "client"]
