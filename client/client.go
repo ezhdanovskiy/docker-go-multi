@@ -127,7 +127,7 @@ func getCurrentValues() map[string]string {
 var tmpl = template.Must(template.New("tmpl").Parse(`
 <html>
 <head>
-    <title>Fib calculator</title>
+    <title>Fib calculator v.1.0.0</title>
 </head>
 <body>
   <div>

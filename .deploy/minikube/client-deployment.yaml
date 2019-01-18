@@ -15,10 +15,7 @@ spec:
       containers:
         - name: client
           image: zhdanovskiy/go-multi-fib
-          command:
-            - "./goapp"
-          args:
-            - "-component"
-            - "client"
+          command: ["./goapp"]
+          args: ["-component", "client"]
           ports:
             - containerPort: 8080
