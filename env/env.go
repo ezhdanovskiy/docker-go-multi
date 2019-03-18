@@ -4,6 +4,7 @@ import (
 	"os"
 )
 
+// Envs for all components
 var (
 	RedisHost    = "redis"
 	RedisPort    = "6379"

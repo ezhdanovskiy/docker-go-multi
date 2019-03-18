@@ -11,6 +11,7 @@ import (
 	"github.com/go-redis/redis"
 )
 
+// Worker struct
 type Worker struct {
 	redis   *redis.Client
 	pubsub  *redis.PubSub
@@ -19,6 +20,7 @@ type Worker struct {
 	wg      sync.WaitGroup
 }
 
+// NewWorker create worker
 func NewWorker(addr, channel, hash string) (*Worker, error) {
 	r := redis.NewClient(&redis.Options{
 		Addr: addr,
@@ -46,6 +48,7 @@ func NewWorker(addr, channel, hash string) (*Worker, error) {
 	return worker, nil
 }
 
+// Run start worker
 func (w *Worker) Run() {
 	for true {
 		msg := <-w.pubsub.Channel()
@@ -59,6 +62,7 @@ func (w *Worker) Run() {
 	}
 }
 
+// Close redis
 func (w *Worker) Close() {
 	log.Println("Close redis pubsub")
 	if err := w.pubsub.Close(); err != nil {

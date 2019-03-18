@@ -11,10 +11,12 @@ import (
 	"os"
 )
 
+// Client struct
 type Client struct {
 	http *http.Server
 }
 
+// StartClient start listening http
 func StartClient(addr string) (*Client, error) {
 	httpServer := &http.Server{Addr: addr}
 
@@ -127,7 +129,7 @@ func getCurrentValues() map[string]string {
 var tmpl = template.Must(template.New("tmpl").Parse(`
 <html>
 <head>
-    <title>Fib calculator v.1.0.0</title>
+    <title>Fib calculator v.1.0.1</title>
 </head>
 <body>
   <div>
@@ -149,6 +151,7 @@ var tmpl = template.Must(template.New("tmpl").Parse(`
 </html>
 `))
 
+// Close shutdown http
 func (c *Client) Close() {
 	log.Println("Shutdown http")
 	if err := c.http.Shutdown(nil); err != nil {

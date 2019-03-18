@@ -12,9 +12,10 @@ import (
 
 	"github.com/ezhdanovskiy/docker-go-multi/env"
 	"github.com/go-redis/redis"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // pg need only for server
 )
 
+// Server struct
 type Server struct {
 	db *sql.DB
 
@@ -25,6 +26,7 @@ type Server struct {
 	http *http.Server
 }
 
+// StartServer start server
 func StartServer(addr string) (*Server, error) {
 	dataSourceName := fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%s sslmode=disable",
 		env.PostgresUser, env.PostgresPassword, env.PostgresDatabase, env.PostgresHost, env.PostgresPort)
@@ -164,6 +166,7 @@ func (s *Server) index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hi from server")
 }
 
+// Close postgres, redis and http
 func (s *Server) Close() {
 	log.Println("Close postgres")
 	if err := s.db.Close(); err != nil {
